@@ -161,6 +161,13 @@ public class KafkaRestConfig extends RestConfig {
           + "before being disconnected.";
   public static final String PRODUCE_GRACE_PERIOD_DEFAULT = "30000";
 
+  public static final String PRODUCE_MAX_OUTSTANDING_RESPONSES =
+      "api.v3.produce.max.outstanding.produce.responses";
+  private static final String PRODUCE_MAX_OUTSTANDING_RESPONSES_DOC =
+      "The number of outstanding produce requests waiting for a response from the Kafka cluster"
+          + "before the http client is disconnected.";
+  public static final String PRODUCE_MAX_OUTSTANDING_RESPONSES_DEFAULT = "50";
+
   public static final String CONSUMER_ITERATOR_TIMEOUT_MS_CONFIG = "consumer.iterator.timeout.ms";
   private static final String CONSUMER_ITERATOR_TIMEOUT_MS_DOC =
       "Timeout for blocking consumer iterator operations. This should be set to a small enough"
@@ -435,6 +442,12 @@ public class KafkaRestConfig extends RestConfig {
             PRODUCE_GRACE_PERIOD_DEFAULT,
             Importance.LOW,
             PRODUCE_GRACE_PERIOD_DOC)
+        .define(
+            PRODUCE_MAX_OUTSTANDING_RESPONSES,
+            Type.INT,
+            PRODUCE_MAX_OUTSTANDING_RESPONSES_DEFAULT,
+            Importance.LOW,
+            PRODUCE_MAX_OUTSTANDING_RESPONSES_DOC)
         .define(
             CONSUMER_ITERATOR_TIMEOUT_MS_CONFIG,
             Type.INT,

@@ -28,7 +28,9 @@ import io.confluent.kafkarest.exceptions.RateLimitGracePeriodExceededException;
 import io.confluent.kafkarest.exceptions.TooManyRequestsException;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -39,7 +41,7 @@ import org.apache.kafka.common.header.internals.RecordHeader;
 
 final class ProduceControllerImpl implements ProduceController {
 
-  private final Producer<byte[], byte[]> producer;
+  @VisibleForTesting private final Producer<byte[], byte[]> producer;
   private final KafkaRestConfig config;
 
   @VisibleForTesting
@@ -49,6 +51,9 @@ final class ProduceControllerImpl implements ProduceController {
   private static final int ONE_SECOND = 1000;
 
   @VisibleForTesting public Time time = new SystemTime();
+
+  static final Set<CompletableFuture<ProduceResult>> outstandingRequests =
+      ConcurrentHashMap.newKeySet();
 
   @Inject
   ProduceControllerImpl(Producer<byte[], byte[]> producer, KafkaRestConfig config) {
@@ -62,7 +67,9 @@ final class ProduceControllerImpl implements ProduceController {
     while (rateCounter.peek() < now - ONE_SECOND) {
       rateCounter.poll();
     }
-    if (rateCounter.size() <= config.getInt(KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND)) {
+    if (rateCounter.size() <= config.getInt(KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND)
+        && outstandingRequests.size()
+            <= config.getInt(KafkaRestConfig.PRODUCE_MAX_OUTSTANDING_RESPONSES)) {
       gracePeriodStart = Optional.empty();
     }
   }
@@ -81,7 +88,9 @@ final class ProduceControllerImpl implements ProduceController {
     addToAndCullRateCounter(now);
 
     CompletableFuture<ProduceResult> result = new CompletableFuture<>();
-    if (rateCounter.size() > config.getInt(KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND)) {
+    if (rateCounter.size() > config.getInt(KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND)
+        || outstandingRequests.size()
+            > config.getInt(KafkaRestConfig.PRODUCE_MAX_OUTSTANDING_RESPONSES)) {
 
       if (!gracePeriodStart.isPresent()
           && config.getInt(KafkaRestConfig.PRODUCE_GRACE_PERIOD) != 0) {
@@ -96,6 +105,8 @@ final class ProduceControllerImpl implements ProduceController {
     } else {
       gracePeriodStart = Optional.empty();
     }
+
+    outstandingRequests.add(result);
 
     producer.send(
         new ProducerRecord<>(
@@ -112,6 +123,8 @@ final class ProduceControllerImpl implements ProduceController {
                             header.getValue().map(ByteString::toByteArray).orElse(null)))
                 .collect(Collectors.toList())),
         (metadata, exception) -> {
+          outstandingRequests.remove(result);
+
           if (exception != null) {
             result.completeExceptionally(exception);
           } else if (gracePeriodStart.isPresent()) {

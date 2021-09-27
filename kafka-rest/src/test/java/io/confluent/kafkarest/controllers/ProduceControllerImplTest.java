@@ -16,6 +16,7 @@
 package io.confluent.kafkarest.controllers;
 
 import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_GRACE_PERIOD;
+import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_MAX_OUTSTANDING_RESPONSES;
 import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
@@ -448,6 +449,8 @@ public class ProduceControllerImplTest {
     Time time = new MockTime();
     produceController = new ProduceControllerImpl(producer, new KafkaRestConfig(properties));
     ((ProduceControllerImpl) produceController).rateCounter.clear();
+    ((ProduceControllerImpl) produceController).gracePeriodStart = Optional.empty();
+    ((ProduceControllerImpl) produceController).outstandingRequests.clear();
 
     ((ProduceControllerImpl) produceController).time = time;
 
@@ -567,6 +570,7 @@ public class ProduceControllerImplTest {
     produceController = new ProduceControllerImpl(producer, new KafkaRestConfig(properties));
     ((ProduceControllerImpl) produceController).rateCounter.clear();
     ((ProduceControllerImpl) produceController).gracePeriodStart = Optional.empty();
+    ((ProduceControllerImpl) produceController).outstandingRequests.clear();
 
     MockProducer<byte[], byte[]> producer2 =
         new MockProducer<>(
@@ -716,6 +720,7 @@ public class ProduceControllerImplTest {
     produceController = new ProduceControllerImpl(producer, new KafkaRestConfig(properties));
     ((ProduceControllerImpl) produceController).rateCounter.clear();
     ((ProduceControllerImpl) produceController).gracePeriodStart = Optional.empty();
+    ((ProduceControllerImpl) produceController).outstandingRequests.clear();
 
     Time time = new MockTime();
     ((ProduceControllerImpl) produceController).time = time;
@@ -939,6 +944,128 @@ public class ProduceControllerImplTest {
                 "value-8".getBytes(StandardCharsets.UTF_8),
                 /* headers= */ emptyList())),
         producer.history());
+  }
+
+  @Test
+  public void producerHitsKafkaBacklogLimit() {
+
+    Properties properties = new Properties();
+    int outstandingResponses = 0;
+    int gracePeriod = 10;
+    int rateLimit = 10000;
+
+    properties.put(PRODUCE_MAX_OUTSTANDING_RESPONSES, Integer.toString(outstandingResponses));
+    properties.put(PRODUCE_GRACE_PERIOD, Integer.toString(gracePeriod));
+    properties.put(PRODUCE_MAX_REQUESTS_PER_SECOND, Integer.toString(rateLimit));
+
+    produceController = new ProduceControllerImpl(producer, new KafkaRestConfig(properties));
+    ((ProduceControllerImpl) produceController).rateCounter.clear();
+    ((ProduceControllerImpl) produceController).gracePeriodStart = Optional.empty();
+    ((ProduceControllerImpl) produceController).outstandingRequests.clear();
+
+    MockProducer<byte[], byte[]> producer2 =
+        new MockProducer<>(
+            CLUSTER,
+            /* autoComplete= */ false,
+            new RoundRobinPartitioner(),
+            new ByteArraySerializer(),
+            new ByteArraySerializer());
+    ProduceController produceController2 =
+        new ProduceControllerImpl(producer2, new KafkaRestConfig(properties));
+
+    Time time = new MockTime();
+    ((ProduceControllerImpl) produceController).time = time;
+    ((ProduceControllerImpl) produceController2).time = time;
+
+    CompletableFuture<ProduceResult> result1 =
+        produceController.produce(
+            "cluster-1",
+            "topic-1",
+            /* partitionId= */ Optional.of(1),
+            /* headers= */ ImmutableMultimap.of(),
+            Optional.of(ByteString.copyFromUtf8("key-1")),
+            Optional.of(ByteString.copyFromUtf8("value-1")),
+            Instant.ofEpochMilli(1000));
+
+    time.sleep(1);
+
+    //    CompletableFuture<ProduceResult> resultb =
+    //        produceController.produce(
+    //            "cluster-1",
+    //            "topic-1",
+    //            /* partitionId= */ Optional.of(1),
+    //            /* headers= */ ImmutableMultimap.of(),
+    //            Optional.of(ByteString.copyFromUtf8("key-1b")),
+    //            Optional.of(ByteString.copyFromUtf8("value-1b")),
+    //            Instant.ofEpochMilli(1000));
+    //
+    //    time.sleep(1);
+
+    CompletableFuture<ProduceResult> result2 =
+        produceController2.produce(
+            "cluster-1",
+            "topic-1",
+            /* partitionId= */ Optional.of(1),
+            /* headers= */ ImmutableMultimap.of(),
+            Optional.of(ByteString.copyFromUtf8("key-2")),
+            Optional.of(ByteString.copyFromUtf8("value-2")),
+            Instant.ofEpochMilli(1000));
+
+    producer2.completeNext();
+
+    AtomicInteger checkpoint1 = new AtomicInteger(0);
+    assertTrue(result2.isCompletedExceptionally());
+    result2.handle(
+        (result, error) -> {
+          assertNull(result);
+          assertEquals(TooManyRequestsException.class, error.getClass());
+          checkpoint1.incrementAndGet();
+          return true;
+        });
+    assertEquals(new AtomicInteger(1).get(), checkpoint1.get());
+
+    time.sleep(11);
+
+    CompletableFuture<ProduceResult> result3 =
+        produceController2.produce(
+            "cluster-1",
+            "topic-1",
+            /* partitionId= */ Optional.of(1),
+            /* headers= */ ImmutableMultimap.of(),
+            Optional.of(ByteString.copyFromUtf8("key-3")),
+            Optional.of(ByteString.copyFromUtf8("value-3")),
+            Instant.ofEpochMilli(1000));
+
+    producer2.completeNext();
+
+    AtomicInteger checkpoint2 = new AtomicInteger(0);
+    assertTrue(result3.isCompletedExceptionally());
+    result3.handle(
+        (result, error) -> {
+          assertNull(result);
+          assertEquals(RateLimitGracePeriodExceededException.class, error.getClass());
+          checkpoint2.incrementAndGet();
+          return true;
+        });
+    assertEquals(new AtomicInteger(1).get(), checkpoint2.get());
+
+    //    assertProducerRecordsEquals(
+    //        Arrays.asList(
+    //            new ProducerRecord<>(
+    //                "topic-1",
+    //                1,
+    //                2000L,
+    //                "key-2".getBytes(StandardCharsets.UTF_8),
+    //                "value-2".getBytes(StandardCharsets.UTF_8),
+    //                /* headers= */ emptyList()),
+    //            new ProducerRecord<>(
+    //                "topic-1",
+    //                1,
+    //                3000L,
+    //                "key-3".getBytes(StandardCharsets.UTF_8),
+    //                "value-3".getBytes(StandardCharsets.UTF_8),
+    //                /* headers= */ emptyList())),
+    //        producer.history());
   }
 
   private static void assertProducerRecordsEquals(
