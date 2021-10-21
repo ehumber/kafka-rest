@@ -20,7 +20,6 @@ import static java.util.Objects.requireNonNull;
 import io.confluent.kafkarest.Time;
 import io.confluent.kafkarest.config.ConfigModule.ProduceGracePeriodConfig;
 import io.confluent.kafkarest.config.ConfigModule.ProduceRateLimitConfig;
-import io.confluent.kafkarest.config.ConfigModule.ProduceRateLimitEnabledConfig;
 import io.confluent.kafkarest.exceptions.RateLimitGracePeriodExceededException;
 import java.time.Duration;
 import java.util.Optional;
@@ -35,7 +34,6 @@ public final class RateLimiter {
 
   private final int maxRequestsPerSecond;
   private final int gracePeriod;
-  private final boolean rateLimitingEnabled;
   private final Time time;
   private final AtomicInteger rateCounterSize = new AtomicInteger(0);
 
@@ -46,19 +44,14 @@ public final class RateLimiter {
   public RateLimiter(
       @ProduceGracePeriodConfig Integer produceGracePeriodConfig,
       @ProduceRateLimitConfig Integer produceRateLimitConfig,
-      @ProduceRateLimitEnabledConfig Boolean produceRateLimitEnabledConfig,
       Time time) {
     this.maxRequestsPerSecond = requireNonNull(produceRateLimitConfig);
     this.gracePeriod = requireNonNull(produceGracePeriodConfig);
-    this.rateLimitingEnabled = requireNonNull(produceRateLimitEnabledConfig);
     this.time = requireNonNull(time);
   }
 
   public Optional<Duration> calculateGracePeriodExceeded()
       throws RateLimitGracePeriodExceededException {
-    if (!rateLimitingEnabled) {
-      return Optional.empty();
-    }
 
     long now = time.milliseconds();
     int currentRate = addAndGetRate(now);
@@ -75,12 +68,7 @@ public final class RateLimiter {
     return resumeAfter;
   }
 
-  public void clear() {
-    rateCounter.clear();
-    rateCounterSize.set(0);
-  }
-
-  public void resetGracePeriodStart() {
+  private void resetGracePeriodStart() {
     gracePeriodStart.set(-1);
   }
 

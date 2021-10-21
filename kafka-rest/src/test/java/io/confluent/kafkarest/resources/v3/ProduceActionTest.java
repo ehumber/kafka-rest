@@ -1,5 +1,6 @@
 package io.confluent.kafkarest.resources.v3;
 
+import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_CACHE_EXPIRY_MS;
 import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_GRACE_PERIOD_MS;
 import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND;
 import static io.confluent.kafkarest.KafkaRestConfig.PRODUCE_RATE_LIMIT_ENABLED;
@@ -20,7 +21,7 @@ import io.confluent.kafkarest.entities.v3.ProduceRequest;
 import io.confluent.kafkarest.entities.v3.ProduceResponse;
 import io.confluent.kafkarest.exceptions.v3.ErrorResponse;
 import io.confluent.kafkarest.mock.MockTime;
-import io.confluent.kafkarest.resources.RateLimiter;
+import io.confluent.kafkarest.resources.RateLimiters;
 import io.confluent.kafkarest.response.ChunkedOutputFactory;
 import io.confluent.kafkarest.response.FakeAsyncResponse;
 import io.confluent.kafkarest.response.StreamingResponse.ResultOrError;
@@ -54,6 +55,7 @@ public class ProduceActionTest {
     properties.put(PRODUCE_GRACE_PERIOD_MS, "0");
     properties.put(PRODUCE_MAX_REQUESTS_PER_SECOND, "1");
     properties.put(PRODUCE_RATE_LIMIT_ENABLED, "true");
+    properties.put(PRODUCE_CACHE_EXPIRY_MS, "3600000");
 
     // setup
     ChunkedOutputFactory chunkedOutputFactory = mock(ChunkedOutputFactory.class);
@@ -107,6 +109,7 @@ public class ProduceActionTest {
     properties.put(PRODUCE_MAX_REQUESTS_PER_SECOND, Integer.toString(1));
     properties.put(PRODUCE_GRACE_PERIOD_MS, Integer.toString(10));
     properties.put(PRODUCE_RATE_LIMIT_ENABLED, "true");
+    properties.put(PRODUCE_CACHE_EXPIRY_MS, Integer.toString(3600000));
 
     // setup
     ChunkedOutputFactory chunkedOutputFactory0 = mock(ChunkedOutputFactory.class);
@@ -117,19 +120,20 @@ public class ProduceActionTest {
         getChunkedOutput(chunkedOutputFactory1, TOTAL_NUMBER_OF_PRODUCE_CALLS_PROD1);
     Time time = new MockTime();
 
-    RateLimiter rateLimiter =
-        new RateLimiter(
+    RateLimiters rateLimiters =
+        new RateLimiters(
             Integer.parseInt(properties.getProperty(PRODUCE_GRACE_PERIOD_MS)),
             Integer.parseInt(properties.getProperty(PRODUCE_MAX_REQUESTS_PER_SECOND)),
             Boolean.parseBoolean(properties.getProperty(PRODUCE_RATE_LIMIT_ENABLED)),
+            Integer.parseInt(properties.getProperty(PRODUCE_CACHE_EXPIRY_MS)),
             time);
 
     ProduceAction produceAction0 =
         getProduceAction(
-            rateLimiter, chunkedOutputFactory0, TOTAL_NUMBER_OF_PRODUCE_CALLS_PROD0, 0);
+            rateLimiters, chunkedOutputFactory0, TOTAL_NUMBER_OF_PRODUCE_CALLS_PROD0, 0);
     ProduceAction produceAction1 =
         getProduceAction(
-            rateLimiter, chunkedOutputFactory1, TOTAL_NUMBER_OF_PRODUCE_CALLS_PROD1, 1);
+            rateLimiters, chunkedOutputFactory1, TOTAL_NUMBER_OF_PRODUCE_CALLS_PROD1, 1);
     MappingIterator<ProduceRequest> requests0 =
         getProduceRequestsMappingIterator(TOTAL_NUMBER_OF_PRODUCE_CALLS_PROD0);
     MappingIterator<ProduceRequest> requests1 =
@@ -211,6 +215,7 @@ public class ProduceActionTest {
     properties.put(PRODUCE_MAX_REQUESTS_PER_SECOND, Integer.toString(1));
     properties.put(PRODUCE_GRACE_PERIOD_MS, Integer.toString(10));
     properties.put(PRODUCE_RATE_LIMIT_ENABLED, "true");
+    properties.put(PRODUCE_CACHE_EXPIRY_MS, Integer.toString(3600000));
 
     // setup
     ChunkedOutputFactory chunkedOutputFactory = mock(ChunkedOutputFactory.class);
@@ -316,6 +321,7 @@ public class ProduceActionTest {
     properties.put(PRODUCE_MAX_REQUESTS_PER_SECOND, Integer.toString(10000));
     properties.put(PRODUCE_GRACE_PERIOD_MS, Integer.toString(30000));
     properties.put(PRODUCE_RATE_LIMIT_ENABLED, "true");
+    properties.put(PRODUCE_CACHE_EXPIRY_MS, Integer.toString(3600000));
 
     // setup
     ChunkedOutputFactory chunkedOutputFactory = mock(ChunkedOutputFactory.class);
@@ -369,6 +375,7 @@ public class ProduceActionTest {
     properties.put(PRODUCE_MAX_REQUESTS_PER_SECOND, Integer.toString(1));
     properties.put(PRODUCE_GRACE_PERIOD_MS, Integer.toString(10));
     properties.put(PRODUCE_RATE_LIMIT_ENABLED, "true");
+    properties.put(PRODUCE_CACHE_EXPIRY_MS, Integer.toString(3600000));
 
     // setup
     ChunkedOutputFactory chunkedOutputFactory = mock(ChunkedOutputFactory.class);
@@ -608,10 +615,11 @@ public class ProduceActionTest {
   ProduceAction getProduceAction(
       Properties properties, ChunkedOutputFactory chunkedOutputFactory, Time time, int times) {
     return getProduceAction(
-        new RateLimiter(
+        new RateLimiters(
             Integer.parseInt(properties.getProperty(PRODUCE_GRACE_PERIOD_MS)),
             Integer.parseInt(properties.getProperty(PRODUCE_MAX_REQUESTS_PER_SECOND)),
             Boolean.parseBoolean(properties.getProperty(PRODUCE_RATE_LIMIT_ENABLED)),
+            Integer.parseInt(properties.getProperty(PRODUCE_CACHE_EXPIRY_MS)),
             time),
         chunkedOutputFactory,
         times,
@@ -619,7 +627,7 @@ public class ProduceActionTest {
   }
 
   ProduceAction getProduceAction(
-      RateLimiter rateLimiter,
+      RateLimiters rateLimiters,
       ChunkedOutputFactory chunkedOutputFactory,
       int times,
       int producerId) {
@@ -644,9 +652,8 @@ public class ProduceActionTest {
             producerMetricsProvider,
             chunkedOutputFactory,
             streamingResponseFactory,
-            rateLimiter);
-    rateLimiter.resetGracePeriodStart();
-    rateLimiter.clear();
+            rateLimiters);
+    rateLimiters.clear();
 
     return produceAction;
   }

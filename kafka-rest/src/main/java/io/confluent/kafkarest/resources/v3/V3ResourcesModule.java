@@ -17,7 +17,7 @@ package io.confluent.kafkarest.resources.v3;
 
 import io.confluent.kafkarest.SystemTime;
 import io.confluent.kafkarest.Time;
-import io.confluent.kafkarest.resources.RateLimiter;
+import io.confluent.kafkarest.resources.RateLimiters;
 import io.confluent.kafkarest.response.ChunkedOutputFactory;
 import io.confluent.kafkarest.response.StreamingResponseFactory;
 import javax.inject.Singleton;
@@ -27,7 +27,7 @@ public final class V3ResourcesModule extends AbstractBinder {
 
   @Override
   protected void configure() {
-    bindAsContract(RateLimiter.class).in(Singleton.class);
+    bindAsContract(RateLimiters.class).in(Singleton.class);
     bindAsContract(ChunkedOutputFactory.class);
     bindAsContract(StreamingResponseFactory.class);
     bind(SystemTime.class).to(Time.class);

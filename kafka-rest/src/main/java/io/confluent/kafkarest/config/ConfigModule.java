@@ -165,6 +165,15 @@ public final class ConfigModule extends AbstractBinder {
   @Qualifier
   @Retention(RetentionPolicy.RUNTIME)
   @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
+  public @interface ProduceRateLimitCacheExpiryConfig {}
+
+  private static final class ProduceRateLimitCacheExpiryConfigImpl
+      extends AnnotationLiteral<ProduceRateLimitCacheExpiryConfig>
+      implements ProduceRateLimitCacheExpiryConfig {}
+
+  @Qualifier
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
   public @interface ProduceRateLimitEnabledConfig {}
 
   private static final class ProduceRateLimitEnabledConfigImpl

@@ -36,7 +36,7 @@ import io.confluent.kafkarest.entities.v3.ProduceResponse;
 import io.confluent.kafkarest.entities.v3.ProduceResponse.ProduceResponseData;
 import io.confluent.kafkarest.exceptions.BadRequestException;
 import io.confluent.kafkarest.extension.ResourceAccesslistFeature.ResourceName;
-import io.confluent.kafkarest.resources.RateLimiter;
+import io.confluent.kafkarest.resources.RateLimiters;
 import io.confluent.kafkarest.response.ChunkedOutputFactory;
 import io.confluent.kafkarest.response.StreamingResponseFactory;
 import io.confluent.rest.annotations.PerformanceMetric;
@@ -84,7 +84,7 @@ public final class ProduceAction {
   private final Provider<ProducerMetrics> producerMetrics;
   private final ChunkedOutputFactory chunkedOutputFactory;
   private final StreamingResponseFactory streamingResponseFactory;
-  private final RateLimiter rateLimiter;
+  private final RateLimiters rateLimiters;
 
   @Inject
   public ProduceAction(
@@ -94,14 +94,14 @@ public final class ProduceAction {
       Provider<ProducerMetrics> producerMetrics,
       ChunkedOutputFactory chunkedOutputFactory,
       StreamingResponseFactory streamingResponseFactory,
-      RateLimiter rateLimiter) {
+      RateLimiters rateLimiters) {
     this.schemaManagerProvider = requireNonNull(schemaManagerProvider);
     this.recordSerializerProvider = requireNonNull(recordSerializer);
     this.produceControllerProvider = requireNonNull(produceControllerProvider);
     this.producerMetrics = requireNonNull(producerMetrics);
     this.chunkedOutputFactory = requireNonNull(chunkedOutputFactory);
     this.streamingResponseFactory = requireNonNull(streamingResponseFactory);
-    this.rateLimiter = requireNonNull(rateLimiter);
+    this.rateLimiters = requireNonNull(rateLimiters);
   }
 
   @POST
@@ -121,7 +121,8 @@ public final class ProduceAction {
         .from(requests)
         .compose(
             request -> {
-              Optional<Duration> resumeAfterMs = rateLimiter.calculateGracePeriodExceeded();
+              Optional<Duration> resumeAfterMs =
+                  rateLimiters.calculateGracePeriodExceeded(clusterId);
               return produce(clusterId, topicName, request, controller, resumeAfterMs);
             })
         .resume(asyncResponse);
