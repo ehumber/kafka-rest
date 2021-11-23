@@ -108,7 +108,11 @@ public final class ConfigModule extends AbstractBinder {
         .to(Duration.class);
 
     bind(config.getInt(KafkaRestConfig.PRODUCE_MAX_REQUESTS_PER_SECOND))
-        .qualifiedBy(new ProduceRateLimitConfigImpl())
+        .qualifiedBy(new ProduceRateLimitCountConfigImpl())
+        .to(Integer.class);
+
+    bind(config.getInt(KafkaRestConfig.PRODUCE_MAX_BYTES_PER_SECOND))
+        .qualifiedBy(new ProduceRateLimitBytesConfigImpl())
         .to(Integer.class);
 
     bind(config.getBoolean(KafkaRestConfig.PRODUCE_RATE_LIMIT_ENABLED))
@@ -266,10 +270,20 @@ public final class ConfigModule extends AbstractBinder {
   @Qualifier
   @Retention(RetentionPolicy.RUNTIME)
   @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
-  public @interface ProduceRateLimitConfig {}
+  public @interface ProduceRateLimitCountConfig {}
 
-  private static final class ProduceRateLimitConfigImpl
-      extends AnnotationLiteral<ProduceRateLimitConfig> implements ProduceRateLimitConfig {}
+  private static final class ProduceRateLimitCountConfigImpl
+      extends AnnotationLiteral<ProduceRateLimitCountConfig>
+      implements ProduceRateLimitCountConfig {}
+
+  @Qualifier
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target({ElementType.TYPE, ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER})
+  public @interface ProduceRateLimitBytesConfig {}
+
+  private static final class ProduceRateLimitBytesConfigImpl
+      extends AnnotationLiteral<ProduceRateLimitBytesConfig>
+      implements ProduceRateLimitBytesConfig {}
 
   @Qualifier
   @Retention(RetentionPolicy.RUNTIME)
