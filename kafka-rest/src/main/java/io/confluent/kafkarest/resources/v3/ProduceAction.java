@@ -118,8 +118,17 @@ public final class ProduceAction {
         .from(requests)
         .compose(
             request -> {
-              Optional<Duration> waitFor = rateLimiter.calculateGracePeriodExceeded();
-              return produce(clusterId, topicName, request, controller, waitFor);
+              Optional<Long> messageSize = request.getOriginalSize();
+              if (messageSize.isPresent()) {
+                return produce(
+                    clusterId,
+                    topicName,
+                    request,
+                    controller,
+                    rateLimiter.calculateGracePeriodExceeded(messageSize.get()));
+              } else {
+                return produce(clusterId, topicName, request, controller, Optional.empty());
+              }
             })
         .resume(asyncResponse);
   }
