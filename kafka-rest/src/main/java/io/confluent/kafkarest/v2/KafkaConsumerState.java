@@ -49,6 +49,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.TopicPartition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Tracks all the state for a consumer. This class is abstract in order to support multiple
@@ -99,14 +101,19 @@ public abstract class KafkaConsumerState<KafkaKeyT, KafkaValueT, ClientKeyT, Cli
       String async,
       ConsumerOffsetCommitRequest offsetCommitRequest
   ) {
+    log.info("** commitOffsets");
     // If no offsets are given, then commit all the records read so far
     if (offsetCommitRequest == null) {
       if (async == null) {
+        log.info("** commit sync");
         consumer.commitSync();
       } else {
+        log.info("** commit async");
         consumer.commitAsync();
       }
+      log.info("** commits done");
     } else {
+      log.info("** committing specific offsets");
       Map<TopicPartition, OffsetAndMetadata> offsetMap =
           new HashMap<TopicPartition, OffsetAndMetadata>();
 
@@ -128,6 +135,7 @@ public abstract class KafkaConsumerState<KafkaKeyT, KafkaValueT, ClientKeyT, Cli
       consumer.commitSync(offsetMap);
     }
     List<TopicPartitionOffset> result = new Vector<TopicPartitionOffset>();
+    log.info("** commitOffsets exit");
     return result;
   }
 
@@ -338,7 +346,7 @@ public abstract class KafkaConsumerState<KafkaKeyT, KafkaValueT, ClientKeyT, Cli
         .map(OffsetAndTimestamp::offset);
   }
 
-  public synchronized boolean expired(long nowMs) {
+  public boolean expired(long nowMs) { //here
     return expiration <= nowMs;
   }
 
@@ -360,13 +368,17 @@ public abstract class KafkaConsumerState<KafkaKeyT, KafkaValueT, ClientKeyT, Cli
     return consumerRecords.peek();
   }
 
+  private static final Logger log = LoggerFactory.getLogger(KafkaConsumerState.class);
+
   synchronized boolean hasNext() {
     if (hasNextCached()) {
+      log.info("Has next cached returns true early");
       return true;
     }
     // If none are available, try checking for any records already fetched by the consumer.
     getOrCreateConsumerRecords();
 
+    log.info("Has next cached returning hasNextCached()");
     return hasNextCached();
   }
 
@@ -375,6 +387,7 @@ public abstract class KafkaConsumerState<KafkaKeyT, KafkaValueT, ClientKeyT, Cli
   }
 
   synchronized ConsumerRecord<KafkaKeyT, KafkaValueT> next() {
+    log.info("** next");
     return consumerRecords.poll();
   }
 
@@ -385,11 +398,18 @@ public abstract class KafkaConsumerState<KafkaKeyT, KafkaValueT, ClientKeyT, Cli
    * invoked with the lock held, i.e. after startRead().
    */
   private synchronized void getOrCreateConsumerRecords() {
+    long unique = System.currentTimeMillis();
+    log.info("** getOrCreateConsumerRecords current thread" + Thread.currentThread().getId());
+    log.info("** getOrCreateConsumerRecords hash " + this.hashCode());
+    log.info("** getOrCreateConsumerRecords - before poll" + unique);
     ConsumerRecords<KafkaKeyT, KafkaValueT> polledRecords = consumer.poll(0);
+    log.info("** getOrCreateConsumerRecords - after poll" + unique);
     //drain the iterator and buffer to list
     for (ConsumerRecord<KafkaKeyT, KafkaValueT> consumerRecord : polledRecords) {
+      log.info("** getOrCreateConsumerRecords - consumerRecords.add loop");
       consumerRecords.add(consumerRecord);
     }
+    log.info("** leaving getOrCreateConsumerRecords" + unique);
   }
 
   private class NoOpOnRebalance implements ConsumerRebalanceListener {

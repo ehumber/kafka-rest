@@ -672,12 +672,15 @@ public class KafkaConsumerManager {
       String instance,
       boolean toRemove
   ) {
+    log.info("** getConsumerInstance before call to constructor group:" + group + "instance:" + instance);
     ConsumerInstanceId id = new ConsumerInstanceId(group, instance);
+    log.info("** getConsumerInstance after call to constructor group:" + group + "instance:" + instance);
     final KafkaConsumerState state = toRemove ? consumers.remove(id) : consumers.get(id);
     if (state == null) {
       throw Errors.consumerInstanceNotFoundException();
     }
     state.updateExpiration();
+    log.info("** getConsumerInstance at end:" + group + "instance:" + instance);
     return state;
   }
 
@@ -765,8 +768,9 @@ public class KafkaConsumerManager {
             Iterator itr = consumers.values().iterator();
             while (itr.hasNext()) {
               final KafkaConsumerState state = (KafkaConsumerState) itr.next();
+              log.info("ExpirationThread run consumer " + state + " " + state.hashCode());
               if (state != null && state.expired(now)) {
-                log.debug("Removing the expired consumer {}", state.getId());
+                log.info("Removing the expired consumer {}", state.getId());
                 itr.remove();
                 executor.submit(new Runnable() {
                   @Override

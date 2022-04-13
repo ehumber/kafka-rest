@@ -138,18 +138,22 @@ class KafkaConsumerReadTask<KafkaKeyT, KafkaValueT, ClientKeyT, ClientValueT> {
    */
   private void addRecords() {
     while (!exceededMinResponseBytes && !exceededMaxResponseBytes && parent.hasNext()) {
+      log.info("** Taking lock on parent hasNext()");
       synchronized (parent) {
         if (parent.hasNext()) {
           maybeAddRecord();
         }
       }
+      log.info("** Released lock on parent hasNext()");
     }
     while (!exceededMaxResponseBytes && parent.hasNextCached()) {
+      log.info("** Taking lock on parent hasNextCached()");
       synchronized (parent) {
         if (parent.hasNextCached()) {
           maybeAddRecord();
         }
       }
+      log.info("** Released lock on parent hasNextCached()");
     }
   }
 
@@ -160,6 +164,7 @@ class KafkaConsumerReadTask<KafkaKeyT, KafkaValueT, ClientKeyT, ClientValueT> {
    * have exceeded the min response bytes
    */
   private void maybeAddRecord() {
+    log.info("maybeAddRecord entry");
     ConsumerRecordAndSize<ClientKeyT, ClientValueT> recordAndSize =
             parent.createConsumerRecord(parent.peek());
     long roughMsgSize = recordAndSize.getSize();
@@ -172,8 +177,10 @@ class KafkaConsumerReadTask<KafkaKeyT, KafkaValueT, ClientKeyT, ClientValueT> {
     parent.next(); // increment iterator
     bytesConsumed += roughMsgSize;
     if (!exceededMinResponseBytes && bytesConsumed > responseMinBytes) {
+      log.info("** exceededMinResponseBytes");
       this.exceededMinResponseBytes = true;
     }
+    log.info("maybeAddRecord exit");
   }
 
   void finish() {

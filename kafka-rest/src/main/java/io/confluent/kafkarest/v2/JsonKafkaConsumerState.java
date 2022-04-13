@@ -22,6 +22,8 @@ import io.confluent.kafkarest.KafkaRestConfig;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.errors.SerializationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class JsonKafkaConsumerState extends KafkaConsumerState<byte[], byte[], Object, Object> {
 
@@ -33,9 +35,12 @@ public class JsonKafkaConsumerState extends KafkaConsumerState<byte[], byte[], O
     super(config, instanceId, consumer);
   }
 
+  private static final Logger log = LoggerFactory.getLogger(JsonKafkaConsumerState.class);
+
   @Override
   public ConsumerRecordAndSize<Object, Object> createConsumerRecord(
       ConsumerRecord<byte[], byte[]> record) {
+    log.info("** createConsumerRecord entry");
     long approxSize = 0;
 
     Object key = null;
@@ -55,6 +60,7 @@ public class JsonKafkaConsumerState extends KafkaConsumerState<byte[], byte[], O
       value = deserialize(record.value());
     }
 
+    log.info("** createConsumerRecord exit");
     return new ConsumerRecordAndSize<>(
         io.confluent.kafkarest.entities.ConsumerRecord.create(
             record.topic(), key, value, record.partition(), record.offset()), approxSize);
