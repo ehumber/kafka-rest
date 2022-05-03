@@ -48,9 +48,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collector;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -116,7 +118,8 @@ public final class ProduceAction {
       @Suspended AsyncResponse asyncResponse,
       @PathParam("clusterId") String clusterId,
       @PathParam("topicName") String topicName,
-      MappingIterator<ProduceRequest> requests)
+      MappingIterator<ProduceRequest> requests,
+      @Nullable @HeaderParam("Content-Length") String contentLength)
       throws Exception {
 
     if (requests == null) {
@@ -126,12 +129,16 @@ public final class ProduceAction {
     ProduceController controller = produceControllerProvider.get();
     streamingResponseFactory
         .from(requests)
-        .compose(request -> produce(clusterId, topicName, request, controller))
+        .compose(request -> produce(clusterId, topicName, request, controller, contentLength))
         .resume(asyncResponse);
   }
 
   private CompletableFuture<ProduceResponse> produce(
-      String clusterId, String topicName, ProduceRequest request, ProduceController controller) {
+      String clusterId,
+      String topicName,
+      ProduceRequest request,
+      ProduceController controller,
+      String contentLength) {
 
     try {
       produceRateLimiters.rateLimit(clusterId, request.getOriginalSize());
@@ -159,7 +166,50 @@ public final class ProduceAction {
     Optional<ByteString> serializedValue =
         serialize(topicName, valueFormat, valueSchema, request.getValue(), /* isKey= */ false);
 
-    recordRequestMetrics(request.getOriginalSize());
+    log.info("** before streaming" + request.getHeaders().size());
+
+    if (contentLength != null) {
+      try {
+        int length = Integer.parseInt(contentLength);
+        if (length > 0) {
+
+          //Be careful here
+
+          //If we send two concatenated requests
+          //curl -X POST http://localhost:8082/v3/clusters/kZ7pDeiQSS-9eRtOXlWSMQ/topics/summit/records  -H "Content-Type: application/json" --data '{"value": {"type": "JSON", "data": "{\"Hello\":\"Kafka Summit\"}"}}{"value": {"type": "JSON", "data": "{\"Hello\":\"Kafka Summit\"}"}}'   -vvv
+          //The content header size is 134
+          //but the individual payload size is 67
+          //The content header is counted EACH time we go through this code
+
+          //If you put whitespace in between the {"value": {"type": "JSON", "data": "{\"Hello\":\"Kafka Summit\"}"}} then this is counted in the content header length, but not the getOriginalSize length (which is think is fine)
+
+          //with single records the content-length of 67 matches the getoriginalsize length of 67
+
+          log.info("*** 1 Request Metric with content header length " + length);
+          log.info("*** 1 Original size " + request.getOriginalSize());
+          recordRequestMetrics(length);
+        } else {
+
+          //when testing the first time I saw a length of -1 for streamed messages, but now I see null.  Left this in in case
+
+          log.info("*** 2 Request Metric with content header length " + length);
+          log.info("*** 2 Original size " + request.getOriginalSize());
+          recordRequestMetrics(request.getOriginalSize());
+        }
+      } catch (NumberFormatException nfe) {
+        log.info("*** 3 Request Metric with content header length " + contentLength);
+        log.info("*** 3 Original size " + request.getOriginalSize());
+        recordRequestMetrics(request.getOriginalSize());
+      }
+    } else {
+      log.info("*** 4 Request Metric with no content header length " + contentLength);
+      log.info("*** 4 Original size " + request.getOriginalSize());
+      recordRequestMetrics(request.getOriginalSize());
+    }
+
+    log.info(
+        "** request.getHeaders().stream().collect(PRODUCE_REQUEST_HEADER_COLLECTOR)"
+            + request.getHeaders().stream().collect(PRODUCE_REQUEST_HEADER_COLLECTOR));
 
     CompletableFuture<ProduceResult> produceResult =
         controller.produce(

@@ -123,7 +123,7 @@ public class ProduceActionTest {
 
     // run test
     FakeAsyncResponse fakeAsyncResponse = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests, "123");
 
     // check results
     EasyMock.verify(requests);
@@ -229,7 +229,7 @@ public class ProduceActionTest {
 
     // run test
     FakeAsyncResponse fakeAsyncResponse1 = new FakeAsyncResponse();
-    produceAction1.produce(fakeAsyncResponse1, "clusterId", "topicName", requests);
+    produceAction1.produce(fakeAsyncResponse1, "clusterId", "topicName", requests, "123");
 
     // check results
     EasyMock.verify(requests);
@@ -320,9 +320,9 @@ public class ProduceActionTest {
 
     // run test
     FakeAsyncResponse fakeAsyncResponse = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests, "123");
     FakeAsyncResponse fakeAsyncResponse2 = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse2, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse2, "clusterId", "topicName", requests, "123");
 
     // check results
     // check results
@@ -420,9 +420,9 @@ public class ProduceActionTest {
 
     // run test
     FakeAsyncResponse fakeAsyncResponse = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests, "123");
     FakeAsyncResponse fakeAsyncResponse2 = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse2, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse2, "clusterId", "topicName", requests, "123");
 
     // check results
     verify(
@@ -501,9 +501,9 @@ public class ProduceActionTest {
 
     // run test
     FakeAsyncResponse fakeAsyncResponse = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests, "123");
     FakeAsyncResponse fakeAsyncResponse2 = new FakeAsyncResponse();
-    produceAction.produce(fakeAsyncResponse2, "clusterId", "topicName", requests);
+    produceAction.produce(fakeAsyncResponse2, "clusterId", "topicName", requests, "123");
 
     // check results
     verify(
@@ -563,7 +563,9 @@ public class ProduceActionTest {
     RestConstraintViolationException e =
         assertThrows(
             RestConstraintViolationException.class,
-            () -> produceAction.produce(fakeAsyncResponse, "clusterId", "topicName", requests));
+            () ->
+                produceAction.produce(
+                    fakeAsyncResponse, "clusterId", "topicName", requests, "123"));
     assertEquals("Payload error. Null input provided. Data is required.", e.getMessage());
     assertEquals(42206, e.getErrorCode());
   }

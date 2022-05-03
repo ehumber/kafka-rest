@@ -45,10 +45,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @AutoValue
 @JsonDeserialize(using = ProduceRequest.Deserializer.class)
 public abstract class ProduceRequest {
+
+  private static final Logger log = LoggerFactory.getLogger(ProduceRequest.class);
 
   ProduceRequest() {}
 
@@ -76,6 +80,7 @@ public abstract class ProduceRequest {
   public abstract long getOriginalSize();
 
   public static Builder builder() {
+    log.info("** generic builder");
     return new AutoValue_ProduceRequest.Builder().setHeaders(emptyList());
   }
 
@@ -89,6 +94,7 @@ public abstract class ProduceRequest {
         @JsonProperty("key") @Nullable ProduceRequestData key,
         @JsonProperty("value") @Nullable ProduceRequestData value,
         @JsonProperty("timestamp") @Nullable Instant timestamp) {
+      log.info("** FROM JSON" + headers);
       return ProduceRequest.builder()
           .setPartitionId(partitionId)
           .setHeaders(headers != null ? headers : ImmutableList.of())
@@ -117,6 +123,7 @@ public abstract class ProduceRequest {
     @Override
     public ProduceRequest deserialize(JsonParser parser, DeserializationContext context)
         throws IOException {
+
       long start =
           parser.getCurrentLocation().getByteOffset() == -1
               ? parser.getCurrentLocation().getCharOffset()
@@ -146,16 +153,19 @@ public abstract class ProduceRequest {
     @JsonProperty("value")
     @JsonInclude(Include.NON_ABSENT)
     final Optional<BinaryNode> getSerializedValue() {
+      log.info("** header get serialized");
       return getValue().map(value -> BinaryNode.valueOf(value.toByteArray()));
     }
 
     public static ProduceRequestHeader create(String name, @Nullable ByteString value) {
+      log.info("** create");
       return new AutoValue_ProduceRequest_ProduceRequestHeader(name, Optional.ofNullable(value));
     }
 
     @JsonCreator
     static ProduceRequestHeader fromJson(
         @JsonProperty("name") String name, @JsonProperty("value") @Nullable byte[] value) {
+      log.info("** from json in header");
       return create(name, value != null ? ByteString.copyFrom(value) : null);
     }
   }
