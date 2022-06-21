@@ -45,6 +45,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -1083,10 +1084,17 @@ public class KafkaRestConfig extends RestConfig {
         .contextLabels()
         .forEach((label, value) -> props.put(METRICS_CONTEXT_PREFIX + label, value));
     props.putAll(originalsWithPrefix(TELEMETRY_PREFIX, false));
+
+    log.error("BBB addTelemetryReporterProperties ");
+    props.forEach((k, v) -> log.error("BBB all props after tel reporter " + k + " " + v + " "));
   }
 
   private void addMetricsReporters(Properties props) {
-    props.put(METRICS_REPORTER_CLASSES_CONFIG, getList(METRICS_REPORTER_CLASSES_CONFIG));
+    List<String> reporters =
+        Collections.singletonList("io.confluent.telemetry.reporter.TelemetryReporter");
+    log.info("AAA list of metrics reporters:" + getList(METRICS_REPORTER_CLASSES_CONFIG));
+    getList(METRICS_REPORTER_CLASSES_CONFIG).forEach((k) -> log.info("AAA reporter key " + k));
+    props.put(METRICS_REPORTER_CLASSES_CONFIG, reporters);
   }
 
   @Override

@@ -43,12 +43,17 @@ import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import javax.ws.rs.core.Configurable;
+import org.apache.kafka.common.utils.AppInfoParser;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.StringUtil;
 import org.glassfish.jersey.server.ServerProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utilities for configuring and running an embedded Kafka server. */
 public class KafkaRestApplication extends Application<KafkaRestConfig> {
+
+  private static final Logger log = LoggerFactory.getLogger(KafkaRestApplication.class);
 
   List<RestResourceExtension> restResourceExtensions;
 
@@ -75,6 +80,22 @@ public class KafkaRestApplication extends Application<KafkaRestConfig> {
         config.getConfiguredInstances(
             KafkaRestConfig.KAFKA_REST_RESOURCE_EXTENSION_CONFIG, RestResourceExtension.class);
     config.setMetrics(metrics);
+
+    metrics
+        .reporters()
+        .forEach(
+            reporter -> {
+              log.error("BBB " + reporter.toString());
+              if ("io.confluent.telemetry.reporter.TelemetryReporter"
+                  .equals(reporter.getClass().toString())) {
+                reporter.contextChange(config.getMetricsContext());  //can't change the context on the registered JMX reporter, so need an if
+              }
+            });
+
+    AppInfoParser.registerAppInfo(
+        "kafka.rest", "kafka.rest.id", metrics, Time.SYSTEM.milliseconds());
+
+    log.error("BBB after registered app info" + metrics.reporters());
   }
 
   @Override

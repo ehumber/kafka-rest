@@ -110,6 +110,7 @@ final class ProducerMetrics {
 
   ProducerMetrics(KafkaRestConfig config, Time time, Map<String, String> metricsTags) {
     this.metrics = requireNonNull(config.getMetrics());
+    log.info("AAA Metrics objest ref " + this.metrics + " " + config.getMetrics());
     this.jmxPrefix = config.getString(KafkaRestConfig.METRICS_JMX_PREFIX_CONFIG);
     String sensorNamePrefix = jmxPrefix + ":" + GROUP_NAME + ":";
     this.recordErrorSensorName = sensorNamePrefix + RECORD_ERROR_SENSOR_NAME;

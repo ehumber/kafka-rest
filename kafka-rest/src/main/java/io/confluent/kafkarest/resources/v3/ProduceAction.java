@@ -135,6 +135,13 @@ public final class ProduceAction {
       ProduceController controller,
       ProducerMetrics metrics) {
 
+    // slow it all down
+    //    try {
+    //      Thread.sleep(5000);
+    //    } catch (InterruptedException e) {
+    //      e.printStackTrace();
+    //    }
+
     try {
       produceRateLimiters.rateLimit(clusterId, request.getOriginalSize());
     } catch (RateLimitExceededException e) {
