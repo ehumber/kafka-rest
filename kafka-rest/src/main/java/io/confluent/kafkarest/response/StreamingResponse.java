@@ -110,17 +110,20 @@ public abstract class StreamingResponse<T> {
   private final Duration maxDuration;
   private final Duration gracePeriod;
   volatile boolean closingStarted = false;
-  private Instant streamStartTime;
-  private Clock clock;
+  private final Instant streamStartTime;
+  private final Clock clock;
   private static final int ONE_SECOND_MS = 1000;
 
   StreamingResponse(
-      ChunkedOutputFactory chunkedOutputFactory, Duration maxDuration, Duration gracePeriod) {
-    clock = Clock.systemUTC();
+      ChunkedOutputFactory chunkedOutputFactory,
+      Duration maxDuration,
+      Duration gracePeriod,
+      Clock clock) {
     this.chunkedOutputFactory = requireNonNull(chunkedOutputFactory);
-    this.streamStartTime = clock.instant();
     this.maxDuration = maxDuration;
     this.gracePeriod = gracePeriod;
+    this.streamStartTime = clock.instant();
+    this.clock = clock;
   }
 
   public static <T> StreamingResponse<T> from(
@@ -129,7 +132,18 @@ public abstract class StreamingResponse<T> {
       Duration maxDuration,
       Duration gracePeriod) {
     return new InputStreamingResponse<>(
-        inputStream, chunkedOutputFactory, maxDuration, gracePeriod);
+        inputStream, chunkedOutputFactory, maxDuration, gracePeriod, Clock.systemUTC());
+  }
+
+  @VisibleForTesting
+  static <T> StreamingResponse<T> fromWithClock(
+      JsonStream<T> inputStream,
+      ChunkedOutputFactory chunkedOutputFactory,
+      Duration maxDuration,
+      Duration gracePeriod,
+      Clock clock) {
+    return new InputStreamingResponse<>(
+        inputStream, chunkedOutputFactory, maxDuration, gracePeriod, clock);
   }
 
   public final <O> StreamingResponse<O> compose(
@@ -226,8 +240,9 @@ public abstract class StreamingResponse<T> {
         JsonStream<T> inputStream,
         ChunkedOutputFactory chunkedOutputFactory,
         Duration maxDuration,
-        Duration gracePeriod) {
-      super(chunkedOutputFactory, maxDuration, gracePeriod);
+        Duration gracePeriod,
+        Clock clock) {
+      super(chunkedOutputFactory, maxDuration, gracePeriod, clock);
       this.inputStream = requireNonNull(inputStream);
     }
 
@@ -274,7 +289,7 @@ public abstract class StreamingResponse<T> {
         ChunkedOutputFactory chunkedOutputFactory,
         Duration maxDuration,
         Duration gracePeriod) {
-      super(chunkedOutputFactory, maxDuration, gracePeriod);
+      super(chunkedOutputFactory, maxDuration, gracePeriod, streamingResponseInput.clock);
       this.streamingResponseInput = requireNonNull(streamingResponseInput);
       this.transform = requireNonNull(transform);
     }
@@ -478,13 +493,6 @@ public abstract class StreamingResponse<T> {
         return new CompositeErrorMapper(mappers.build(), defaultMapper);
       }
     }
-  }
-
-  @VisibleForTesting
-  protected StreamingResponse<T> overrideClock(Clock clock) {
-    this.clock = clock;
-    streamStartTime = clock.instant();
-    return this;
   }
 }
 // CHECKSTYLE:ON:ClassDataAbstractionCoupling
