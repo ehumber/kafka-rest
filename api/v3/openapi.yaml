@@ -102,6 +102,33 @@ paths:
         '5XX':
           $ref: '#/components/responses/ServerErrorResponse'
 
+  /clusters/{cluster_id}/acls:batch:
+    parameters:
+      - $ref: '#/components/parameters/ClusterId'
+
+    post:
+      summary: 'Batch Create ACLs'
+      operationId: batchCreateKafkaV3Acls
+      description: |-
+        Internal use only.
+
+        Creates ACLs.
+      tags:
+        - ACL (v3)
+      requestBody:
+        $ref: '#/components/requestBodies/BatchCreateAclRequest'
+      responses:
+        '201':
+          description: 'No Content'
+        '400':
+          $ref: '#/components/responses/BadRequestErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedErrorResponse'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsErrorResponse'
+        '5XX':
+          $ref: '#/components/responses/ServerErrorResponse'
+
   /clusters/{cluster_id}/acls:
     parameters:
       - $ref: '#/components/parameters/ClusterId'
@@ -136,7 +163,7 @@ paths:
           $ref: '#/components/responses/ServerErrorResponse'
 
     post:
-      summary: 'Create ACLs'
+      summary: 'Create an ACL'
       operationId: createKafkaV3Acls
       description: |-
         [![Generally Available](https://img.shields.io/badge/Lifecycle%20Stage-Generally%20Available-%2345c6e8)](#section/Versioning/API-Lifecycle-Policy)
@@ -1271,10 +1298,10 @@ paths:
         Produce records to the given topic, returning delivery reports for each
                     record produced. This API can be used in streaming mode by setting "Transfer-Encoding:
                     chunked" header. For as long as the connection is kept open, the server will
-                    keep accepting records. Records are streamed to and from the server as Concatenated 
+                    keep accepting records. Records are streamed to and from the server as Concatenated
                     JSON. For each record sent to the server, the server will
                     asynchronously send back a delivery report, in the same order, each with its own
-                    error_code. An error_code of 200 indicates success. The HTTP status code will be HTTP 
+                    error_code. An error_code of 200 indicates success. The HTTP status code will be HTTP
                     200 OK as long as the connection is successfully established. To identify records
                     that have encountered an error, check the error_code of each delivery report.
       tags:
@@ -1722,6 +1749,17 @@ components:
           $ref: '#/components/schemas/AclOperation'
         permission:
           $ref: '#/components/schemas/AclPermission'
+
+    CreateAclRequestDataList:
+      allOf:
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateAclRequestData'
 
     CreateTopicRequestData:
       type: object
@@ -2440,6 +2478,30 @@ components:
             host: '*'
             operation: 'DESCRIBE'
             permission: 'DENY'
+
+    BatchCreateAclRequest:
+      description: 'The batch ACL creation request.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CreateAclRequestDataList'
+          example:
+            data:
+              - resource_type: 'CLUSTER'
+                resource_name: 'kafka-cluster'
+                pattern_type: 'LITERAL'
+                principal: 'principalType:principalName'
+                host: '*'
+                operation: 'DESCRIBE'
+                permission: 'DENY'
+              - resource_type: 'TOPIC'
+                resource_name: 'kafka-cluster'
+                pattern_type: 'LITERAL'
+                principal: 'principalType:principalName'
+                host: '*'
+                operation: 'READ'
+                permission: 'ALLOW'
+
 
     CreateTopicRequest:
       description: 'The topic creation request.'
