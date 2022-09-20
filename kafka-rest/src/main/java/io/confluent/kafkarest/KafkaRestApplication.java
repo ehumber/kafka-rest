@@ -43,12 +43,17 @@ import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
 import javax.ws.rs.core.Configurable;
+import org.apache.kafka.common.metrics.Metrics;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.StringUtil;
 import org.glassfish.jersey.server.ServerProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utilities for configuring and running an embedded Kafka server. */
 public class KafkaRestApplication extends Application<KafkaRestConfig> {
+
+  private static final Logger log = LoggerFactory.getLogger(KafkaRestApplication.class);
 
   List<RestResourceExtension> restResourceExtensions;
 
@@ -69,7 +74,14 @@ public class KafkaRestApplication extends Application<KafkaRestConfig> {
   }
 
   public KafkaRestApplication(KafkaRestConfig config, String path, String listenerName) {
-    super(config, path, listenerName);
+    this(config, path, listenerName, null);
+  }
+
+  public KafkaRestApplication(
+      KafkaRestConfig config, String path, String listenerName, Metrics metrics) {
+    super(config, path, listenerName, metrics);
+
+    log.error("ELH *** changes in kafka-rest");
 
     restResourceExtensions =
         config.getConfiguredInstances(
