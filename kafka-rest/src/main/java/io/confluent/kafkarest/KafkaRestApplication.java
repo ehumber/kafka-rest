@@ -46,6 +46,8 @@ import javax.ws.rs.core.Configurable;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.util.StringUtil;
 import org.glassfish.jersey.server.ServerProperties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Utilities for configuring and running an embedded Kafka server. */
 public class KafkaRestApplication extends Application<KafkaRestConfig> {
@@ -68,8 +70,12 @@ public class KafkaRestApplication extends Application<KafkaRestConfig> {
     this(config, path, null);
   }
 
+  private static final Logger log = LoggerFactory.getLogger(KafkaRestApplication.class);
+
   public KafkaRestApplication(KafkaRestConfig config, String path, String listenerName) {
     super(config, path, listenerName);
+
+    log.error("ELH *** updated kafka-rest");
 
     restResourceExtensions =
         config.getConfiguredInstances(

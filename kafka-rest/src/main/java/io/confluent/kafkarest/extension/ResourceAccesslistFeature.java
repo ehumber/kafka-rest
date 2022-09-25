@@ -37,6 +37,8 @@ import javax.ws.rs.core.FeatureContext;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import org.glassfish.jersey.server.wadl.processor.OptionsMethodProcessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A feature that controls access to endpoints based on allowlist and blocklist configs.
@@ -72,20 +74,24 @@ public final class ResourceAccesslistFeature implements DynamicFeature {
 
   @Override
   public void configure(ResourceInfo resourceInfo, FeatureContext context) {
-    if (isOptionsProcessor(resourceInfo)) {
-      // Always allow OPTIONS requests. We don't have a good mechanism for blocking OPTIONS requests
-      // in specific endpoints because the default OPTIONS handler handles requests for all
-      // endpoints.
-      return;
-    }
 
-    boolean blocked =
-        isBlockedByAccesslist(resourceInfo, apiEndpointsAllowlistConfig, true)
-            || isBlockedByAccesslist(resourceInfo, apiEndpointsBlocklistConfig, false);
+    context.register(ThrowingFilter.class);
 
-    if (blocked) {
-      context.register(ThrowingFilter.class);
-    }
+    //    if (isOptionsProcessor(resourceInfo)) {
+    //      // Always allow OPTIONS requests. We don't have a good mechanism for blocking OPTIONS
+    // requests
+    //      // in specific endpoints because the default OPTIONS handler handles requests for all
+    //      // endpoints.
+    //      return;
+    //    }
+    //
+    //    boolean blocked =
+    //        isBlockedByAccesslist(resourceInfo, apiEndpointsAllowlistConfig, true)
+    //            || isBlockedByAccesslist(resourceInfo, apiEndpointsBlocklistConfig, false);
+    //
+    //    if (blocked) {
+    //      context.register(ThrowingFilter.class);
+    //    }
   }
 
   private static boolean isOptionsProcessor(ResourceInfo resourceInfo) {
@@ -131,11 +137,79 @@ public final class ResourceAccesslistFeature implements DynamicFeature {
     String value();
   }
 
+  private static final Logger log = LoggerFactory.getLogger(ResourceAccesslistFeature.class);
+
   @Priority(MorePriorities.PRE_AUTHENTICATION)
   private static final class ThrowingFilter implements ContainerRequestFilter {
 
     @Override
     public void filter(ContainerRequestContext context) {
+      log.error("ELH *** resource accesslist feature");
+      log.error("class of request{}", context.getRequest().getClass());
+      ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+          .getPropertiesDelegate()
+          .getPropertyNames()
+          .forEach(val -> log.error("propertye name : {}", val));
+      ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+          .getPropertyNames()
+          .forEach(val -> log.error("other prop name {} ", val));
+
+      log.error(
+          " URI info {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest()).getUriInfo());
+      log.error(
+          "getrequest get request {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getRequest()
+              .getClass());
+      log.error(
+          "base URI {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getBaseUri()
+              .toString());
+      log.error(
+          "base URI {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getBaseUri()
+              .getHost());
+      log.error(
+          "absolute path {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getAbsolutePath()
+              .toString());
+
+      log.error(
+          "absolute path {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getAbsolutePath()
+              .getPath());
+
+      log.error(
+          "get method {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest()).getMethod());
+      log.error(
+          " get path false {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest()).getPath(false));
+      log.error(
+          "get path true {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest()).getPath(true));
+      log.error(
+          "request headers {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getRequestHeaders());
+      log.error(
+          "request URI {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest()).getRequestUri());
+      log.error(
+          "location {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest()).getLocation());
+      log.error(
+          "get request get method {}",
+          ((org.glassfish.jersey.server.ContainerRequest) context.getRequest())
+              .getRequest()
+              .getMethod());
+      System.out.println("ELH*** sout");
+
       if (HttpMethod.GET.equals(context.getMethod())) {
         throw new NotFoundException();
       } else {

@@ -17,8 +17,11 @@ package io.confluent.kafkarest.ratelimit;
 
 import static java.util.Objects.requireNonNull;
 
+import io.confluent.kafkarest.extension.ResourceAccesslistFeature;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A {@link ContainerRequestFilter} that automatically applies a request rate-limit at a fixed cost
@@ -33,8 +36,12 @@ final class FixedCostRateLimitRequestFilter implements ContainerRequestFilter {
     this.rateLimiter = requireNonNull(rateLimiter);
   }
 
+  private static final Logger log = LoggerFactory.getLogger(ResourceAccesslistFeature.class);
+
   @Override
   public void filter(ContainerRequestContext requestContext) {
+    log.error("ELH *** resource accesslist feature");
+    log.error("class of request{}", requestContext.getRequest().getClass());
     rateLimiter.rateLimit();
   }
 }
